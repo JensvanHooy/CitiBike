@@ -14,7 +14,6 @@
 #q.vogelaar@student.maastrichtuniversity.nl
 #j.vanhooy@student.maastrichtuniversity.nl
 
-
 # setup -------------------------------------------------------------------
 rm(list=ls())
 set.seed(299792458)
@@ -332,7 +331,7 @@ metric.table<-function(crit,metric){
 plot.metric<-function(crit,metric,title){
   ggplot(crit,aes(x=horizon,y=.data[[metric]],linetype=model))+
     geom_line()+
-    scale_linetype_discrete(labels=function(b) hourly_model_labels[b])+   # REVISED: labels matched by model name
+    scale_linetype_discrete(labels=function(b) hourly_model_labels[b])+
     theme_minimal()+
     labs(
       title=title,
@@ -341,10 +340,11 @@ plot.metric<-function(crit,metric,title){
       linetype="Model"
     )
 }
+# label names match the model names; MSARIMA orders corrected; weekly SARIMA added
 hourly_model_labels<-c(arima_2_0_4_notrend="arima(2,0,4)_notrend",arima_3_0_5_t="ARIMA(3,0,5)",arima_2_0_4_t="ARIMA(2,0,4)",sarima_2_0_2_101_t="SARIMA(2,0,2)(1,0,1)[24]",msarima_102_003_103="MSARIMA(1,0,2)[1](0,0,3)[6](1,0,3)[24]",ets_MAM="ETS(MAM)",sarima_weekly="Weekly SARIMA [168]")
 
 # DM p-values per horizon, every model against the benchmark
-# REVISED: two-sided test (H0: equal accuracy; the RMSE tables show which model is better),
+# two-sided test (H0: equal accuracy; the RMSE tables show which model is better),
 # varestimator = "bartlett" keeps the long-run variance positive, and the overlap of the
 # forecast errors depends on the distance between origins: with one origin per day
 # (origin_step = 24) and h <= 24 the forecasts do not overlap, so dm.test gets h = 1
@@ -391,9 +391,9 @@ check.coherence <- function(f) {
 #the observed quantities demanded  for the different areas correspond to 
 #the market equilibrium, where quantity supplied equals quantity demanded.
 #this implies that a change in observed quantity demand corresponds to
-# a possible shift in underlying real demand or real supply. A more accurate
-# forecast for real demand can probably be obtained when one takes this into account.
-#Unfortunately, we don't have any additional regressors available.
+# a possible shift in underlying real demand or real supply.A more accurate
+# forecast can be probably obtained when one takes this into account.
+#Unfortunately we don't have any additional regressors available.
 
 
 # data exploration:moments, seasonality, stationarity, weak dependence --------------------------------------------------------
@@ -405,7 +405,6 @@ nrows<-nrow(data1)
 colnames(subset1)<-c("year","month","day","hour","area1","area2" ,"area3","area4","area5","area6")
 subset1$date<-as.Date(paste(subset1$year,subset1$month,subset1$day, sep="-"))
 subset1$weekday <- english.weekday(subset1$date)
-subset1$hour_week <- factor((match(subset1$weekday,c("Monday", "Tuesday", "Wednesday", "Thursday","Friday", "Saturday", "Sunday")) - 1) * 24 +subset1$hour)
 table(subset1$weekday)   # check: every weekday should appear
 subset1$timeofday <- ifelse(subset1$hour >= 6 & subset1$hour < 12, "morning",ifelse(subset1$hour >= 12 & subset1$hour < 18, "afternoon",ifelse(subset1$hour >= 18, "evening", "night")))
 subset1$hour0 <- as.integer(subset1$hour == 0) 
@@ -493,142 +492,160 @@ daily$dayofmonth <- as.integer(format(daily$date,"%d"))
 crisis_dates <- data.frame(start = as.Date(c("2023-04-28","2023-05-19", "2023-07-15")),end= as.Date(c("2023-05-01","2023-05-21" ,"2023-07-17")))
 
 #plot of daily data full sample
-ggplot(daily, aes(x=date)) +
-  geom_line(aes(y=area1),color="steelblue",linewidth=0.5)+
-  geom_line(aes(y=area2),color="green",linewidth=0.5)+
-  geom_line(aes(y=area3),color="orange",linewidth=0.5)+
-  geom_line(aes(y=area4),color="purple",linewidth=0.5)+
-  geom_line(aes(y=area5),color="tomato",linewidth=0.5)+
-  geom_line(aes(y=area6),color="black",linewidth=0.5)+
-  theme_minimal()+
-  labs(title="")+
-  ylab("demand")+
-  theme(legend.position="bottom")+
-  geom_rect(data = crisis_dates,aes(xmin = start,xmax = end,ymin = -Inf,ymax = Inf),inherit.aes = FALSE,fill="red",alpha=0.2)
+            ggplot(daily, aes(x=date)) +
+              geom_line(aes(y=area1),color="steelblue",linewidth=0.5)+
+              geom_line(aes(y=area2),color="green",linewidth=0.5)+
+              geom_line(aes(y=area3),color="orange",linewidth=0.5)+
+              geom_line(aes(y=area4),color="purple",linewidth=0.5)+
+              geom_line(aes(y=area5),color="tomato",linewidth=0.5)+
+              geom_line(aes(y=area6),color="black",linewidth=0.5)+
+              theme_minimal()+
+              labs(title="")+
+              ylab("demand")+
+              theme(legend.position="bottom")+
+              geom_rect(data = crisis_dates,aes(xmin = start,xmax = end,ymin = -Inf,ymax = Inf),inherit.aes = FALSE,fill="red",alpha=0.2)
 
 #distribution of demand across time of day and weekday
-ggplot(subset1, aes(x=weekday, y=area1,fill=timeofday)) +
-  geom_bar(stat="identity")+
-  theme_minimal()+
-  theme(legend.position="bottom")+
-  labs(title ="Area 1 demand by weekday and time of day")+
-  xlab("days of the week")+
-  ylab("demand")
-ggplot(subset1, aes(x=weekday, y=area2,fill=timeofday)) +
-  geom_bar(stat="identity")+
-  theme_minimal()+
-  theme(legend.position="bottom")+
-  labs(title ="Area 2 demand by weekday and time of day")+
-  xlab("days of the week")+
-  ylab("demand")
-ggplot(subset1, aes(x=weekday, y=area3,fill=timeofday)) +
-  geom_bar(stat="identity")+
-  theme_minimal()+
-  theme(legend.position="bottom")+
-  labs(title ="Area 3 demand by weekday and time of day")+
-  xlab("days of the week")+
-  ylab("demand")
-ggplot(subset1, aes(x=weekday, y=area4,fill=timeofday)) +
-  geom_bar(stat="identity")+
-  theme_minimal()+
-  theme(legend.position="bottom")+
-  labs(title ="Area 4 demand by weekday and time of day")+
-  xlab("days of the week")+
-  ylab("demand")
-ggplot(subset1, aes(x=weekday, y=area5,fill=timeofday)) +
-  geom_bar(stat="identity")+
-  theme_minimal()+
-  theme(legend.position="bottom")+
-  labs(title ="Area 5 demand by weekday and time of day")+
-  xlab("days of the week")+
-  ylab("demand")
-ggplot(subset1, aes(x=weekday, y=area6,fill=timeofday)) +
-  geom_bar(stat="identity")+
-  theme_minimal()+
-  theme(legend.position="bottom")+
-  labs(title ="Area 6 demand by weekday and time of day")+
-  xlab("days of the week")+
-  ylab("demand")
+                ggplot(subset1, aes(x=weekday, y=area1,fill=timeofday)) +
+                  geom_bar(stat="identity")+
+                  theme_minimal()+
+                  theme(legend.position="bottom")+
+                  labs(title ="Area 1 demand by weekday and time of day")+
+                  xlab("days of the week")+
+                  ylab("demand")
+                ggplot(subset1, aes(x=weekday, y=area2,fill=timeofday)) +
+                  geom_bar(stat="identity")+
+                  theme_minimal()+
+                  theme(legend.position="bottom")+
+                  labs(title ="Area 2 demand by weekday and time of day")+
+                  xlab("days of the week")+
+                  ylab("demand")
+                ggplot(subset1, aes(x=weekday, y=area3,fill=timeofday)) +
+                  geom_bar(stat="identity")+
+                  theme_minimal()+
+                  theme(legend.position="bottom")+
+                  labs(title ="Area 3 demand by weekday and time of day")+
+                  xlab("days of the week")+
+                  ylab("demand")
+                ggplot(subset1, aes(x=weekday, y=area4,fill=timeofday)) +
+                  geom_bar(stat="identity")+
+                  theme_minimal()+
+                  theme(legend.position="bottom")+
+                  labs(title ="Area 4 demand by weekday and time of day")+
+                  xlab("days of the week")+
+                  ylab("demand")
+                ggplot(subset1, aes(x=weekday, y=area5,fill=timeofday)) +
+                  geom_bar(stat="identity")+
+                  theme_minimal()+
+                  theme(legend.position="bottom")+
+                  labs(title ="Area 5 demand by weekday and time of day")+
+                  xlab("days of the week")+
+                  ylab("demand")
+                ggplot(subset1, aes(x=weekday, y=area6,fill=timeofday)) +
+                  geom_bar(stat="identity")+
+                  theme_minimal()+
+                  theme(legend.position="bottom")+
+                  labs(title ="Area 6 demand by weekday and time of day")+
+                  xlab("days of the week")+
+                  ylab("demand")
 
 # distribution of demand per area: does CLT apply?-> does I.I.D apply? 
-ggplot(subset1, aes(x=area1))+
-  geom_histogram(color="black", fill="steelblue")+
-  xlab("")+
-  ylab("")+
-  labs(title ="Distribution of Area 1 hourly demand")+
-  theme_minimal()
-ggplot(subset1, aes(x=area2))+
-  geom_histogram(color="black", fill="steelblue")+
-  xlab("")+
-  ylab("")+
-  labs(title ="Distribution of Area 2 hourly demand")+
-  theme_minimal()
-ggplot(subset1, aes(x=area3))+
-  geom_histogram(color="black", fill="steelblue")+
-  xlab("")+
-  ylab("")+
-  labs(title ="Distribution of Area 3 hourly demand")+
-  theme_minimal()
-ggplot(subset1, aes(x=area4))+
-  geom_histogram(color="black", fill="steelblue")+
-  xlab("")+
-  ylab("")+
-  labs(title ="Distribution of Area 4 hourly demand")+
-  theme_minimal()
-ggplot(subset1, aes(x=area5))+
-  geom_histogram(color="black", fill="steelblue")+
-  xlab("")+
-  ylab("")+
-  labs(title ="Distribution of Area 5 hourly demand")+
-  theme_minimal()
-ggplot(subset1, aes(x=area6))+
-  geom_histogram(color="black", fill="steelblue")+
-  xlab("")+
-  ylab("")+
-  labs(title ="Distribution of Area 6 hourly demand")+
-  theme_minimal()
+                ggplot(subset1, aes(x=area1))+
+                  geom_histogram(color="black", fill="steelblue")+
+                  xlab("")+
+                  ylab("")+
+                  labs(title ="Distribution of Area 1 hourly demand")+
+                  theme_minimal()
+                ggplot(subset1, aes(x=area2))+
+                  geom_histogram(color="black", fill="steelblue")+
+                  xlab("")+
+                  ylab("")+
+                  labs(title ="Distribution of Area 2 hourly demand")+
+                  theme_minimal()
+                ggplot(subset1, aes(x=area3))+
+                  geom_histogram(color="black", fill="steelblue")+
+                  xlab("")+
+                  ylab("")+
+                  labs(title ="Distribution of Area 3 hourly demand")+
+                  theme_minimal()
+                ggplot(subset1, aes(x=area4))+
+                  geom_histogram(color="black", fill="steelblue")+
+                  xlab("")+
+                  ylab("")+
+                  labs(title ="Distribution of Area 4 hourly demand")+
+                  theme_minimal()
+                ggplot(subset1, aes(x=area5))+
+                  geom_histogram(color="black", fill="steelblue")+
+                  xlab("")+
+                  ylab("")+
+                  labs(title ="Distribution of Area 5 hourly demand")+
+                  theme_minimal()
+                ggplot(subset1, aes(x=area6))+
+                  geom_histogram(color="black", fill="steelblue")+
+                  xlab("")+
+                  ylab("")+
+                  labs(title ="Distribution of Area 6 hourly demand")+
+                  theme_minimal()
 
 # seasonality plot raw data: -> indication of seasonality (informal eyeballing)
-s1<-ts(subset1$area6, frequency = 24)
-seasonplot(s1, main = "Area 6 hourly seasonality")
-#conclusion: seems to be two seasonal patterns? -> not the seasonality of the data
-#(this follows from discussion first presentation, initially we disregarded the less strong pattern for noise)
-s2<-ts(subset1$area6, frequency = 6)
-seasonplot(s2, main = "Area 6 time of day seasonality")
-#conclusion: seems to be at least 4 seasonal patterns? -> not the seasonality of the data
-s3<-ts(subset1$area6, frequency = 24*7)
-seasonplot(s3, main = "Area 6 weekly seasonality")
-#conclusion: seems to be one seasonal pattern (although some noise)-> clear pattern for weekends (first two peaks) and weekdays (five later peaks)
-#=> we seem to have at least a weekly seasonal pattern in the data, (although it is possible there is also additional daily seasonality)
+              s1<-ts(subset1$area6, frequency = 24)
+              seasonplot(s1, main = "Area 6 hourly seasonality")
+              #conclusion: seems to be two seasonal patterns? -> not the seasonality of the data
+              #(this follows from discussion first presentation, initially we disregarded the less strong pattern for noise)
+              s2<-ts(subset1$area6, frequency = 6)
+              seasonplot(s2, main = "Area 6 time of day seasonality")
+              #conclusion: seems to be at least 4 seasonal patterns? -> not the seasonality of the data
+              s3<-ts(subset1$area6, frequency = 24*7)
+              seasonplot(s3, main = "Area 6 weekly seasonality")
+              #conclusion: seems to be one seasonal pattern (although some noise)-> clear pattern for weekends (first two peaks) and weekdays (five later peaks)
+              #=> we seem to have at least a weekly seasonal pattern in the data, (although it is possible there is also additional daily seasonality)
+              
 
 # seasonality plot daily data: -> no indication of seasonality (informal eyeballing)
-ggplot(daily, aes(x=dayofmonth, y=area6, colour=factor(month.name[month], levels=month.name))) +
-  geom_line()+theme_minimal()+labs(title="Area 6 daily demand per month",x="day of the month",y="demand",colour="month")
+              ggplot(daily, aes(x=dayofmonth, y=area6, colour=factor(month.name[month], levels=month.name))) +
+                geom_line()+theme_minimal()+labs(title="Area 6 daily demand per month",x="day of the month",y="demand",colour="month")
 
 # weak dependence?-> does autocorrelation die out quickly? (informal eyeballing)
-acf(subset1$area1, main = "ACF of Area 1 hourly demand")
-acf(subset1$area2, main = "ACF of Area 2 hourly demand")
-acf(subset1$area3, main = "ACF of Area 3 hourly demand")
-acf(subset1$area4, main = "ACF of Area 4 hourly demand")
-acf(subset1$area5, main = "ACF of Area 5 hourly demand")
-acf(subset1$area6, main = "ACF of Area 6 hourly demand")
-#conclusion: no weak dependence due to seasonality at least
+              acf(daily$area1, main = "ACF of Area 1 daily demand")
+              acf(daily$area2, main = "ACF of Area 2 daily demand")
+              acf(daily$area3, main = "ACF of Area 3 daily demand")
+              acf(daily$area4, main = "ACF of Area 4 daily demand")
+              acf(daily$area5, main = "ACF of Area 5 daily demand")
+              acf(daily$area6, main = "ACF of Area 6 daily demand")
+              #conclusion: no weak dependence due to seasonality at least
 
-# investigation seasonality for areas by regression 
+# investigation seasonality for areas by regression-> deseasonalizing
 # we perform a simplistic deseasonalizing strategy for expositional purpose only
-a1<-lm(area1~hour_week+may+june+july+august,subset1)
-a2<-lm(area2~hour_week+may+june+july+august,subset1)
-a3<-lm(area3~hour_week+may+june+july+august,subset1)
-a4<-lm(area4~hour_week+may+june+july+august,subset1)
-a5<-lm(area5~hour_week+may+june+july+august,subset1)
-a6<-lm(area6~hour_week+may+june+july+august,subset1)
+                a1<-lm(area1~hour1+hour2+hour3+hour4+hour5+hour6+hour7+hour8+hour9+hour10+hour11+hour12+hour13+hour14+hour15+hour16+hour17+hour18+hour19+hour20+hour21+hour22+hour23+Tuesdaymorning+Tuesdayafternoon+Tuesdayevening+Tuesdaynight+Wednesdaymorning+Wednesdayafternoon+Wednesdayevening+Wednesdaynight+
+                         Thursdaymorning+Thursdayafternoon+Thursdayevening+Thursdaynight+Fridaymorning+Fridayafternoon+Fridayevening+Fridaynight+Saturdaymorning+Saturdayafternoon+Saturdayevening+Saturdaynight+
+                         Sundaymorning+Sundayafternoon+Sundayevening+Sundaynight+may+june+july+august,subset1)
+                
+                a2<-lm(area2~hour1+hour2+hour3+hour4+hour5+hour6+hour7+hour8+hour9+hour10+hour11+hour12+hour13+hour14+hour15+hour16+hour17+hour18+hour19+hour20+hour21+hour22+hour23+Tuesdaymorning+Tuesdayafternoon+Tuesdayevening+Tuesdaynight+Wednesdaymorning+Wednesdayafternoon+Wednesdayevening+Wednesdaynight+
+                         Thursdaymorning+Thursdayafternoon+Thursdayevening+Thursdaynight+Fridaymorning+Fridayafternoon+Fridayevening+Fridaynight+Saturdaymorning+Saturdayafternoon+Saturdayevening+Saturdaynight+
+                         Sundaymorning+Sundayafternoon+Sundayevening+Sundaynight+may+june+july+august,subset1)
+                
+                a3<-lm(area3~hour1+hour2+hour3+hour4+hour5+hour6+hour7+hour8+hour9+hour10+hour11+hour12+hour13+hour14+hour15+hour16+hour17+hour18+hour19+hour20+hour21+hour22+hour23+Tuesdaymorning+Tuesdayafternoon+Tuesdayevening+Tuesdaynight+Wednesdaymorning+Wednesdayafternoon+Wednesdayevening+Wednesdaynight+
+                         Thursdaymorning+Thursdayafternoon+Thursdayevening+Thursdaynight+Fridaymorning+Fridayafternoon+Fridayevening+Fridaynight+Saturdaymorning+Saturdayafternoon+Saturdayevening+Saturdaynight+
+                         Sundaymorning+Sundayafternoon+Sundayevening+Sundaynight+may+june+july+august,subset1)
+                
+                a4<-lm(area4~hour1+hour2+hour3+hour4+hour5+hour6+hour7+hour8+hour9+hour10+hour11+hour12+hour13+hour14+hour15+hour16+hour17+hour18+hour19+hour20+hour21+hour22+hour23+Tuesdaymorning+Tuesdayafternoon+Tuesdayevening+Tuesdaynight+Wednesdaymorning+Wednesdayafternoon+Wednesdayevening+Wednesdaynight+
+                         Thursdaymorning+Thursdayafternoon+Thursdayevening+Thursdaynight+Fridaymorning+Fridayafternoon+Fridayevening+Fridaynight+Saturdaymorning+Saturdayafternoon+Saturdayevening+Saturdaynight+
+                         Sundaymorning+Sundayafternoon+Sundayevening+Sundaynight+may+june+july+august,subset1)
+                
+                a5<-lm(area5~hour1+hour2+hour3+hour4+hour5+hour6+hour7+hour8+hour9+hour10+hour11+hour12+hour13+hour14+hour15+hour16+hour17+hour18+hour19+hour20+hour21+hour22+hour23+Tuesdaymorning+Tuesdayafternoon+Tuesdayevening+Tuesdaynight+Wednesdaymorning+Wednesdayafternoon+Wednesdayevening+Wednesdaynight+
+                         Thursdaymorning+Thursdayafternoon+Thursdayevening+Thursdaynight+Fridaymorning+Fridayafternoon+Fridayevening+Fridaynight+Saturdaymorning+Saturdayafternoon+Saturdayevening+Saturdaynight+
+                         Sundaymorning+Sundayafternoon+Sundayevening+Sundaynight+may+june+july+august,subset1)
+                
+                a6<-lm(area6~hour1+hour2+hour3+hour4+hour5+hour6+hour7+hour8+hour9+hour10+hour11+hour12+hour13+hour14+hour15+hour16+hour17+hour18+hour19+hour20+hour21+hour22+hour23+Tuesdaymorning+Tuesdayafternoon+Tuesdayevening+Tuesdaynight+Wednesdaymorning+Wednesdayafternoon+Wednesdayevening+Wednesdaynight+
+                         Thursdaymorning+Thursdayafternoon+Thursdayevening+Thursdaynight+Fridaymorning+Fridayafternoon+Fridayevening+Fridaynight+Saturdaymorning+Saturdayafternoon+Saturdayevening+Saturdaynight+
+                         Sundaymorning+Sundayafternoon+Sundayevening+Sundaynight+may+june+july+august,subset1)
 
-summary(a1)# conclusion: significant seasonality
-summary(a2)# conclusion: significant seasonality
-summary(a3)# conclusion: significant seasonality
-summary(a4)# conclusion: significant seasonality
-summary(a5)# conclusion: significant seasonality
-summary(a6)# conclusion: significant seasonality
+                    summary(a1)# conclusion: significant seasonality
+                    summary(a2)# conclusion: significant seasonality
+                    summary(a3)# conclusion: significant seasonality
+                    summary(a4)# conclusion: significant seasonality
+                    summary(a5)# conclusion: significant seasonality
+                    summary(a6)# conclusion: significant seasonality
 
 deseasonalyarea1<-residuals(a1)
 deseasonalyarea2<-residuals(a2)
@@ -637,31 +654,31 @@ deseasonalyarea4<-residuals(a4)
 deseasonalyarea5<-residuals(a5)
 deseasonalyarea6<-residuals(a6)
 
-acf(subset1$area1, main = "ACF of Area 1 hourly demand")
-acf(deseasonalyarea1, main = "ACF of deseasonalized Area 1 hourly demand") # autocorrelation dies out-> weak dependence better
-acf(subset1$area2, main = "ACF of Area 2 hourly demand")
-acf(deseasonalyarea2, main = "ACF of deseasonalized Area 2 hourly demand") # autocorrelation dies out-> weak dependence better
-acf(subset1$area3, main = "ACF of Area 3 hourly demand")
-acf(deseasonalyarea3, main = "ACF of deseasonalized Area 3 hourly demand") # autocorrelation dies out-> weak dependence better
-acf(subset1$area4, main = "ACF of Area 4 hourly demand")
-acf(deseasonalyarea4, main = "ACF of deseasonalized Area 4 hourly demand") # autocorrelation dies out-> weak dependence better
-acf(subset1$area5, main = "ACF of Area 5 hourly demand")
-acf(deseasonalyarea5, main = "ACF of deseasonalized Area 5 hourly demand") # autocorrelation dies out-> weak dependence better
-acf(subset1$area6, main = "ACF of Area 6 hourly demand")
-acf(deseasonalyarea6, main = "ACF of deseasonalized Area 6 hourly demand") # autocorrelation dies out-> weak dependence better
-
-s4<-ts(deseasonalyarea6, frequency = 24)
-seasonplot(s4, main = "Area 6 hourly deseasonalized") # seasonality seems taken care off
-s5<-ts(deseasonalyarea6, frequency = 24*7)
-seasonplot(s5, main = "Area 6 hourly deseasonalized") # remains some seasonality due to not correctly accounting for all possible dynamics
+                    acf(subset1$area1, main = "ACF of Area 1 hourly demand")
+                    acf(deseasonalyarea1, main = "ACF of deseasonalized Area 1 hourly demand") # autocorrelation dies out-> weak dependence better
+                    acf(subset1$area2, main = "ACF of Area 2 hourly demand")
+                    acf(deseasonalyarea2, main = "ACF of deseasonalized Area 2 hourly demand") # autocorrelation dies out-> weak dependence better
+                    acf(subset1$area3, main = "ACF of Area 3 hourly demand")
+                    acf(deseasonalyarea3, main = "ACF of deseasonalized Area 3 hourly demand") # autocorrelation dies out-> weak dependence better
+                    acf(subset1$area4, main = "ACF of Area 4 hourly demand")
+                    acf(deseasonalyarea4, main = "ACF of deseasonalized Area 4 hourly demand") # autocorrelation dies out-> weak dependence better
+                    acf(subset1$area5, main = "ACF of Area 5 hourly demand")
+                    acf(deseasonalyarea5, main = "ACF of deseasonalized Area 5 hourly demand") # autocorrelation dies out-> weak dependence better
+                    acf(subset1$area6, main = "ACF of Area 6 hourly demand")
+                    acf(deseasonalyarea6, main = "ACF of deseasonalized Area 6 hourly demand") # autocorrelation dies out-> weak dependence better
+                    
+                    s4<-ts(deseasonalyarea6, frequency = 24)
+                    seasonplot(s4, main = "Area 6 hourly deseasonalized") # seasonality seems taken care off
+                    s5<-ts(deseasonalyarea6, frequency = 24*7)
+                    seasonplot(s5, main = "Area 6 hourly deseasonalized") # remains some seasonality due to not correctly accounting for everything
 
 #summary statistics for different areas:
-summary1(subset1$area1)
-summary1(subset1$area2)
-summary1(subset1$area3)
-summary1(subset1$area4)
-summary1(subset1$area5)
-summary1(subset1$area6) # clearly larger demand coming from here
+                    summary1(subset1$area1)
+                    summary1(subset1$area2)
+                    summary1(subset1$area3)
+                    summary1(subset1$area4)
+                    summary1(subset1$area5)
+                    summary1(subset1$area6) # clearly larger demand comming from here
 
 #conclusion:
 # non weak stationarity due to seasonality and probable trend
@@ -669,8 +686,8 @@ summary1(subset1$area6) # clearly larger demand coming from here
 # assumption 1 and 2 for weak stationarity no evidence of problem
 # assumption 3 problem due tot seasonality
 # weak dependency no problem after accounting seasonality
-# weak stationarity no problem after accounting seasonality and trend (probably)
-# seasonality: weekly (potentially also additional other)
+# weak stationarity no problem after accounting seasonality
+# seasonality: weekly, hourly time of day
 # data limitations to capture true demand-> equilibrium observations
 
 
@@ -683,7 +700,7 @@ summary1(subset1$area6) # clearly larger demand coming from here
 # bootstrapping is always good practise although the sample is fairly large
                     
 #setup
-# REVISED: the unit root test uses the training sample only (April-July); August is test data.
+# the unit root test uses the training sample only (April-July); August is test data.
 #          The seasonality regression is re-estimated on the training sample (without the
 #          august dummy, which is zero for all training observations).
 training_rows<-which(subset1$month >= 4 & subset1$month <= 7)
@@ -717,7 +734,7 @@ subset2b$Sunday<-as.integer(subset2b$weekday == "Sunday")
 nrows2<-nrow(daily)
 subset2b$trend <-1:nrows2
 
-# REVISED: training sample only (April-July)
+# training sample only (April-July)
 daily_training_rows<-which(as.Date(subset2b$date) < as.Date("2023-08-01"))
 a6d<-lm(area6~Tuesday+Wednesday+Thursday+Friday+Saturday+Sunday,subset2b[daily_training_rows,])
 deseasonalyarea6daily<-residuals(a6d)
@@ -731,7 +748,9 @@ acf(deseasonalyarea6daily, main = "ACF of deseasonalized Area 6 daily demand")
             boot_adf(data = diff(deseasonalyarea6daily),deterministics = "intercept")
             boot_adf(data = deseasonalyarea6daily,deterministics = "trend")
             #conclusion: reject Ho of I(1)
-
+            summary(lm(area6~trend,subset2b[daily_training_rows,]))
+            #no trend indication
+#conclusion it is stationary due to twice rejecting the null
 
 
 # ARMA choice hourly data -------------------------------------------------
@@ -753,7 +772,7 @@ subset3a<-subset3[subset3$month >= 4 & subset3$month <= 7, ]   # training sample
           autolaglengthSC2(5,5,subset3a$area6,subset3a$trend)
           auto.arima(subset3a$area6,xreg = subset3a$trend)
           # conclusion: either ARMA(3,0,5) (own functions) or ARMA(2,0,4) (auto.arima)
-          #             difference may come from  manipulations used in auto.arima such as filters
+          #             difference may come from the use of AICc instead of AIC or other manipulations used in auto.arima
           #             our functions recreates the selection procedure done in auto.arima without considering these manipulations
           
           auto.arima(subset3a$deseasonalarea6,xreg = subset3a$trend)
@@ -767,7 +786,7 @@ subset3a<-subset3[subset3$month >= 4 & subset3$month <= 7, ]   # training sample
                         acf(residuals(b1), main = "ACF of ARIMA(2,0,4) residuals")
                         acf(residuals(b2), main = "ACF of ARIMA(3,0,5) residuals")
                         #conclusion: still significant autocorrelation?
-                        #             we don't account for seasonality + no homoskedasticity
+                        #             we don't account for seasonality
                         plot(residuals(b1), main = "Residuals of ARIMA(2,0,4)")
                         plot(residuals(b2), main = "Residuals of ARIMA(3,0,5)")
                         #conclusion: still significant seasonality
@@ -820,44 +839,45 @@ subset3b<- subset2b[as.Date(subset2b$date) < as.Date("2023-08-01"),]
 # SARIMA models allows us to model seasonality in the data by specifying an ARIMA structure on it in tandem with the non-seasonal part of the data.
 # a SARIMA (1,0,0)[1,0,0][24] models the current hourly [24] observation as a function of the previous hour (1,0,0) and the previous hour one day before [1,0,0].
 #setup
-subset4a<-subset3a
-c1a <- ts(subset4a$area6, frequency = 24) # freq seasonality > freq. of data = hourly (incorrectly)
-c1as <- ts(subset4a$area6, frequency = 24*7) # freq = seasonal relationship (correctly)
-c1ass<-ts(subset4a$area6, frequency = 6) # freq seasonality > freq. of data = time of day (incorrectly)
-c1t<-1:length(c1as)
+            subset4a<-subset3a
+            c1a <- ts(subset4a$area6, frequency = 24) # freq seasonality > freq. of data = hourly (incorrectly)
+            c1as <- ts(subset4a$area6, frequency = 24*7) # freq = seasonal relationship (correctly)
+            c1ass<-ts(subset4a$area6, frequency = 6) # freq seasonality > freq. of data = time of day (incorrectly)
+            c1t<-1:length(c1as)
 
 # information critera
 #we investigate the need of the linear trend since it was significant in the previous analysis but
 #  it may simply try to capture some of the seasonality.
-          auto.arima(c1a)
-          auto.arima(c1as)
-          auto.arima(c1a,xreg=subset4a$trend)
-          auto.arima(c1as,xreg=subset4a$trend)
-          auto.arima(c1ass,xreg=subset4a$trend)
-          #observations:when considering the freq. of the data to be 24*7 and trend = T we get SARIMA (4,0,1) (case 1)
-          #             when considering the freq. of the data to be 24*7 and trend = F we get SARIMA (2,0,1)(0,1,0)[168] (case 2)
-          #             when considering the freq. of the data to be 24 and trend = T we get SARIMA  (2,0,2)[1,0,1][24] (case 3)
-          #             when considering the freq. of the data to be 24 and trend = F we get SARIMA  (4,0,0)(2,1,0)[24] (case 3)
-          #             when considering the freq. of the data to be 6 and trend = F we get SARIMA  (5,0,5)(2,0,1)[6] (case 4)
-          #            -> in the first case we consider the freq data = the actual seasonal pattern + account for trend  -> no seasonality detected 
-          #            -> in the second case we consider the freq data = the actual seasonal pattern  -> seasonality detected 
-          #            => we have seasonality of pattern length 24*7 (clear based on season plot)  for which we find it can be described by (0,1,0) 
-          #            => the trending behavior detected so far tried probably to capture the seasonal variation since SARIMA (4,0,1) is dominated by our ARMA models (previous section)
-          #            -> in the third and fourth case we consider the freq data < the actual seasonal pattern  -> seasonality detected (incorrectly)
-          # conclusion:   we go for SARIMA(2,0,1)(0,1,0)[168] interpretation: we should look at weekly differences
-          #             ! Since the [168] is big auto.arima might not be able to find the optimal model see section: "weekly seasonality"
-          
-          e1<-auto.arima(c1as,xreg=subset4a$trend)   # stored as e1: used again in the weekly seasonality section
-          e1
+auto.arima(c1a)
+auto.arima(c1as)
+auto.arima(c1a,xreg=subset4a$trend)
+auto.arima(c1as,xreg=subset4a$trend)
+auto.arima(c1ass,xreg=subset4a$trend)
+#observations:when considering the freq. of the data to be 24*7 and trend = T we get SARIMA (4,0,1) (case 1)
+#             when considering the freq. of the data to be 24*7 and trend = F we get SARIMA (2,0,1)(0,1,0)[168] (case 2)
+#             when considering the freq. of the data to be 24 and trend = T we get SARIMA  (2,0,2)[1,0,1][24] (case 3)
+#             when considering the freq. of the data to be 24 and trend = F we get SARIMA  (4,0,0)(2,1,0)[24] (case 3)
+#             when considering the freq. of the data to be 6 and trend = F we get SARIMA  (5,0,5)(2,0,1)[6] (case 4)
+#            -> in the first case we consider the freq data = the actual seasonal pattern + account for trend  -> no seasonality detected 
+#            -> in the second case we consider the freq data = the actual seasonal pattern  -> seasonality detected 
+#            => we have seasonality of pattern length 24*7 (clear based on season plot)  for which we find it can be described by (0,1,0) 
+#            => the trending behavior detected so far tried probably to capture the seasonal variation since SARIMA (4,0,1) is dominated by our ARMA models (previous section)
+#            -> in the third and fourth case we consider the freq data < the actual seasonal pattern  -> seasonality detected (incorrectly)
+# conclusion:   we go for SARIMA(2,0,1)(0,1,0)[168] interpretation: we should look at weekly differences
+#             ! Since the [168] is big auto.arima might not be able to find the optimal model see section: "weekly seasonality"
+
+e1<-auto.arima(c1as,xreg=subset4a$trend)   # stored as e1: used again in the weekly seasonality section
+e1
+
 # information critera 2
 # auto.arima can only grasp one potential seasonal relationship. are there more? -> we test for hourly, time of day patterns
-# note: weekly patterns are not included here, because auto.msarima with a lag of 168 next to
+# weekly patterns are not included here, because auto.msarima with a lag of 168 next to
 #          6 and 24 is very slow; the weekly seasonality is modelled separately in the section
+#          "weekly seasonality" below (the season plot with frequency 168 shows a clear weekly pattern)
 # including a deterministic trend causes perfect colinearity, hence is left out.
           auto.msarima(c1a, orders = list(ar = c(3, 3,3), i = c(0,0,0), ma = c(4,4,4)),lags = c(6,24), initial = c("backcasting"), ic = c("AICc"), loss = c("likelihood","MSE", "MAE", "HAM", "MSEh", "TMSE", "GTMSE", "MSCE"), h = 10,holdout = FALSE, bounds = c("usual", "admissible", "none"), silent = TRUE)
           # conclusion: disregarding the possibility of weekly relations, we have both hourly seasonality and time-of-day seasonality captured by SARIMA(1,0,2)[1](0,0,3)[6](1,0,3)[24]
           #              the lag-6 terms act as extra short-term dynamics within the day, not as a separate 6-hour season
-
 # diagnostics
           c1<-arima(c1a,order = c(2, 0, 2),seasonal = list(order = c(1, 0, 1),period = 24),xreg=subset4a$trend)
           c2<-arima(c1ass,order = c(5, 0, 5),seasonal = list(order = c(2, 0, 1),period = 6),xreg=subset4a$trend)
@@ -876,6 +896,17 @@ c1t<-1:length(c1as)
           plot(residuals(c3), main = "Residuals of hourly SARIMA model")
           adf(residuals(c3),deterministics = "intercept")
           #conclusion: improvement over the previous arma models same as hourly
+
+# brute force deseasonalizing
+            c2a<-ts(subset4a$deseasonalarea6, frequency = 24)
+            c2a<-auto.arima(c2a,xreg=subset4a$trend)
+            # conclusion: not correctly deleting the seasonality induces higher model complexity
+# diagnostics            
+            acf(residuals(c2a), main = "ACF of deseasonalized SARIMA residuals")
+            plot(residuals(c2a), main = "Residuals of deseasonalized SARIMA model")
+            adf(residuals(c2a),deterministics = "intercept")
+            # conclusion: no improvement
+
 
 # SARIMA model daily data --------------------------------------------------
 #setup
@@ -913,18 +944,6 @@ d1a<-ts(subset4a$area6, frequency = 24)
           #conclusion: ACF seems worse than what we found for SARIMA model
 
 
-# es model daily data -----------------------------------------------------
-#setup
-subset5b<-subset4b
-d1b<-ts(subset5b$area6, frequency = 7)
-# information criteria selection
-        d22<-ets(d1b)
-        #conclusion: a ANA model is the best
-# diagnostics
-        acf(residuals(d22), main = "ACF of daily ETS residuals")
-        plot(residuals(d22), main = "Residuals of daily ETS")
-        # conclusion: seems fine
-        
 # weekly seasonality: auto.arima and ETS ------------------------------------
 # The season plot with frequency 168 shows a clear weekday/weekend pattern,
 # so we try to model the weekly seasonality (168 hours) directly.
@@ -943,7 +962,7 @@ c1w<-c1as   # area 6 training data as a time series with frequency 168
 #    No normal differencing (unit root test), weekly difference allowed.
           e2<-auto.msarima(c1w,orders=list(ar=c(5,5),i=c(0,1),ma=c(5,5)),lags=c(1,168),initial="backcasting")
           print(e2)
-          # REVISED: store the selected orders for the out-of-sample forecast exercise (sarima_weekly).
+          # store the selected orders for the out-of-sample forecast exercise (sarima_weekly).
           #          smooth::orders() shortens an all-zero vector to a single 0, so pad to 2 lags.
           pad2<-function(x) c(as.numeric(x),rep(0,2-length(x)))[1:2]
           weekly_orders<-list(ar=pad2(smooth::orders(e2)$ar),i=pad2(smooth::orders(e2)$i),ma=pad2(smooth::orders(e2)$ma))
@@ -954,7 +973,7 @@ c1w<-c1as   # area 6 training data as a time series with frequency 168
                       weekly_orders$ar[2], weekly_orders$i[2], weekly_orders$ma[2]))
           acf(as.numeric(c1w)-as.numeric(fitted(e2)), main="ACF of weekly SARIMA residuals")
           # conclusion: alternative seasonal model: SARIMA(5,0,4)(4,1,3)[168]
-          
+
 # 3. ETS with period 168 (forecast package)
           e3<-tryCatch(ets(c1w),error=function(e){print(conditionMessage(e)); NULL})
           if (!is.null(e3)) print(e3$method)
@@ -967,7 +986,7 @@ c1w<-c1as   # area 6 training data as a time series with frequency 168
           print(e4)
           acf(as.numeric(c1w)-as.numeric(fitted(e4)), main="ACF of weekly ETS residuals")
 
-# 5. REVISED 2: forced Auto-SARIMA with period 168 (forecast package, not smooth).
+# 5. forced Auto-SARIMA with period 168 (forecast package, not smooth).
 #    The free auto.arima (e1) drops the weekly part; here one weekly difference is forced
 #    (D = 1) and auto.arima chooses the rest. d = 0: unit root test. max.P = max.Q = 1:
 #    otherwise far too slow. No trend regressor: after the weekly difference the trend is
@@ -990,12 +1009,74 @@ c1w<-c1as   # area 6 training data as a time series with frequency 168
           in.sample.criteria(residuals(e5)[169:length(residuals(e5))])
 
 
+# es model daily data -----------------------------------------------------
+#setup
+subset5b<-subset4b
+d1b<-ts(subset5b$area6, frequency = 7)
+# information criteria selection
+        d22<-ets(d1b)
+        #conclusion: a ANA model is the best
+# diagnostics
+        acf(residuals(d22), main = "ACF of daily ETS residuals")
+        plot(residuals(d22), main = "Residuals of daily ETS")
+        # conclusion: seems fine
+        
+# in sample selection hourly -----------------------------------------------------
+# the residuals of all models except ARMA models seem to satisfy weak stationarity->consistency
+# the first 100 residuals are dropped for every model (start-up period), so all models are compared on exactly the same hours
+
+#setup
+arima204_nt<-residuals(b)[100:length(residuals(b))]      
+arima204_t<-residuals(b1)[100:length(residuals(b1))]
+arima305_t<-residuals(b2)[100:length(residuals(b2))]
+sarima202101_t<-residuals(c1)[100:length(residuals(c1))]
+sarima505201_t<-residuals(c2)[100:length(residuals(c2))]
+sarima202003103<-residuals(c3)[100:length(residuals(c3))]
+ets2<-residuals(d2,type = "response")[100:length(residuals(d2))]
+
+# in sample criteria: (=not accounting for model complexity)
+            in.sample.criteria(arima204_nt)
+            in.sample.criteria(arima204_t)
+            in.sample.criteria(arima305_t)
+            in.sample.criteria(sarima202101_t)
+            in.sample.criteria(sarima505201_t)
+            in.sample.criteria(sarima202003103)
+            in.sample.criteria(ets2)
+            #conclusion: SARIMA performs the best from the models in sample
+
+#information criteria (=accounting for model complexity)
+#all models are not directly comparable due different classes   
+# given we are performing a forecasting exercise we put more weight on AIC then BIC in evaluation (although we are in sample)
+            # AIC arima models
+              AIC(b)     # ARIMA(2,0,4)_nt
+              AIC(b1)    # ARIMA(2,0,4)_t
+              AIC(b2)    # ARIMA(3,0,5)_t
+              AIC(c1)    # SARIMA(2,0,2)(1,0,1)[24]_t
+              AIC(c2)    # SARIMA(5,0,5)(2,0,1)[6]_t
+              AIC(c3)    # MSARIMA(1,0,2)[1](0,0,3)[6](1,0,3)[24]              
+            # AIC ets models               
+              d2$aic     # ETS(MAM)
+              # AIC is only comparable within the same model class and differencing:
+              #          compare the stats::arima models (b, b1, b2, c1, c2) among each other; c3 (smooth)
+              #          and d2 (ETS) use different likelihood set-ups. Across classes we compare RMSE/MAE
+              #          in the in-sample comparison table below.
+              
+            # BIC arima
+              BIC(b)    # ARIMA(2,0,4)_nt
+              BIC(b1)   # ARIMA(2,0,4)_t
+              BIC(b2)   # ARIMA(3,0,5)_t
+              BIC(c1)    # SARIMA(2,0,2)(1,0,1)[24]_t
+              BIC(c2)    # SARIMA(5,0,5)(2,0,1)[6]_t
+              BIC(c3)    # MSARIMA(1,0,2)[1](0,0,3)[6](1,0,3)[24] 
+            # BIC ets models 
+              d2$bic    # ETS(MAM)
+              # same as for AIC: only compare within a model class
+
 # in-sample comparison table ----------------------------------------------
 # one row per model: AIC/BIC, RMSE/MAE, number and mean of overshoots
 # residuals = actual - fitted, first 99 hours dropped (same hours for every model)
 # NOTE: AIC/BIC are only comparable within the same model class (stats::arima,
 #       smooth, forecast::ets) and with the same differencing; compare all models on RMSE/MAE
-#       RMSE/MAE, number and mean of overshoots don't take model complexity in consideration
 y_train<-as.numeric(subset4a$area6)
 
 table.row<-function(name,resid,aic,bic){
@@ -1021,10 +1102,10 @@ rows<-list(
   table.row("SARIMA(5,0,5)(2,0,1)[6] + trend",residuals(c2),AIC(c2),BIC(c2)),
   table.row("MSARIMA(1,0,2)[1](0,0,3)[6](1,0,3)[24]",y_train-as.numeric(fitted(c3)),AIC(c3),BIC(c3)),
   table.row("ETS(MAM) [24]",residuals(d2,type="response"),d2$aic,d2$bic),
-  table.row("SARIMA(2,0,1)(0,1,0)[168]",residuals(e1),AIC(e1),BIC(e1)),
-  table.row("SARIMA(5,0,4)(4,1,3)[168] (smooth)",y_train-as.numeric(fitted(e2)),AIC(e2),BIC(e2)),
+  table.row("auto.arima [168] (no weekly part)",residuals(e1),AIC(e1),BIC(e1)),
+  table.row("Weekly SARIMA [168] (smooth)",y_train-as.numeric(fitted(e2)),AIC(e2),BIC(e2)),
   table.row("Weekly ETS [168] (smooth)",y_train-as.numeric(fitted(e4)),AIC(e4),BIC(e4)),
-  table.row(e5_name,residuals(e5),AIC(e5),BIC(e5))   # REVISED 2
+  table.row(e5_name,residuals(e5),AIC(e5),BIC(e5))
 )
 if (!is.null(e3)) {
   rows[[length(rows)+1]]<-table.row("ets() [168] (seasonality dropped)",
@@ -1052,8 +1133,6 @@ print(slide_table,row.names=FALSE)
 #MAE -> weekly ETS (but don't account for model complexity)
 # => no clear results found but also not relevant for forecast exercise.
 # => to limit running time we only use SARIMA(5,0,4)(4,1,3)[168] and not weekly ETS in out-of-sample comparison
-
-
 
 # in sample selection daily -----------------------------------------------
 burnin.daily<-20
@@ -1090,7 +1169,7 @@ rolling_daily_forecast <- window.forecast(subset2b$area6,subset2b$trend,freq. = 
               #            for RMSE and mean fitted overshoot the arma model is better model is better
               
 # setup hourly 
-# test sample: all of August (as in the case):
+# test sample = all of August (as in the case):
 # training sample: observations 1-2928 (April-July 2023)
 # test sample: observations 2929-3672 (August 2023)
 # every day at midnight (origin_step = 24) all parameters are re-estimated on the window
@@ -1110,7 +1189,6 @@ rolling_hourly_forecasts <- window.forecast(hourly_forecast_data$area6,hourly_fo
                       print(rolling_hourly_criteria[rolling_hourly_criteria$horizon == 1, ])
                       #conclusion: RMSE/MAE, number and mean of overshoots SARIMA(5,0,4)(4,1,3)[168] (smooth) is best
                       
-                      
                       # per criterion over all horizons
                       metric.table(rolling_hourly_criteria,"RMSE")
                       #conclusion:  weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)" is the best
@@ -1125,7 +1203,7 @@ rolling_hourly_forecasts <- window.forecast(hourly_forecast_data$area6,hourly_fo
                       
                       plot.metric(rolling_hourly_criteria,"RMSE","Rolling-window RMSE by forecast horizon")
                       plot.metric(rolling_hourly_criteria,"total_overshoot","Rolling-window total overshoot by forecast horizon")
-#why mean_overshoot,n_overshoot? -> taking inventory but no demand more expensive than missing demand
+                      #why mean_overshoot,n_overshoot? -> taking inventory but no demand more expensive than missing demand
 
 # expanding window forecast daily, hourly  and evaluation --------------------------
 #setup daily
@@ -1152,29 +1230,85 @@ expanding_hourly_forecasts <- window.forecast(
   H = 24,
   models = hourly_models,
   window = "expanding",
-  origin.step = origin_step   # REVISED: one origin per day
+  origin.step = origin_step
 )
 
 #evaluation
-            expanding_hourly_criteria<-criteria.by.horizon(expanding_hourly_forecasts)
-            expanding_hourly_criteria[expanding_hourly_criteria$horizon == 1, ]  
-            #conclusion: weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)" is the best
-            
-            metric.table(expanding_hourly_criteria,"RMSE")
-            #conclusion: weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)" is the best
-            metric.table(expanding_hourly_criteria,"MAE")
-            #conclusion: weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)" is the best
-            metric.table(expanding_hourly_criteria,"total_overshoot")
-            #conclusion: weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)" is the best
-            metric.table(expanding_hourly_criteria,"mean_overshoot")
-            #conclusion: weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)" is the best
-            metric.table(expanding_hourly_criteria,"n_overshoot")
-            #conclusion: weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)" is the best
+expanding_hourly_criteria<-criteria.by.horizon(expanding_hourly_forecasts)
+expanding_hourly_criteria[expanding_hourly_criteria$horizon == 1, ]  
+#conclusion: weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)" is the best
 
-            plot.metric(expanding_hourly_criteria,"RMSE","Expanding-window RMSE by forecast horizon")
-            plot.metric(expanding_hourly_criteria,"total_overshoot","Expanding-window total overshoot by forecast horizon")
+metric.table(expanding_hourly_criteria,"RMSE")
+#conclusion: weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)" is the best
+metric.table(expanding_hourly_criteria,"MAE")
+#conclusion: weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)" is the best
+metric.table(expanding_hourly_criteria,"total_overshoot")
+#conclusion: weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)" is the best
+metric.table(expanding_hourly_criteria,"mean_overshoot")
+#conclusion: weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)" is the best
+metric.table(expanding_hourly_criteria,"n_overshoot")
+#conclusion: weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)" is the best
 
-# forecast model comparison hourly: DM and MCS ----------------------------------------
+plot.metric(expanding_hourly_criteria,"RMSE","Expanding-window RMSE by forecast horizon")
+plot.metric(expanding_hourly_criteria,"total_overshoot","Expanding-window total overshoot by forecast horizon")
+
+# forecast model comparison hourly ----------------------------------------
+# the diebold mariano test pairwise evaluates whether the forecast error are significantly different from each other
+# DM tests for each forecast horizon (two-sided, H0: both models equally accurate)
+# NA = dm.test could not be computed for that horizon
+#set up hourly
+rolling_hourly_dm<-dm.pvalues(rolling_hourly_forecasts,"msarima_102_003_103")
+expanding_hourly_dm<-dm.pvalues(expanding_hourly_forecasts,"msarima_102_003_103")
+trend_or_no_trend_R<-dm.pvalues(rolling_hourly_forecasts,"arima_2_0_4_notrend")
+trend_or_no_trend_E<-dm.pvalues(expanding_hourly_forecasts,"arima_2_0_4_notrend")
+
+#evaluation
+                round(rolling_hourly_dm,4)
+                round(expanding_hourly_dm,4)
+
+                round(trend_or_no_trend_R,4)
+                round(trend_or_no_trend_E,4)
+                # accounting for a deterministic trend reduce forecast error significantly
+
+# MCS for every forecast horizon
+#The MCS procedure is designed to identify a set of models that are statistically consistent with being the best models.
+# hence, it does not involve pairwise tesing as for the DM-test
+#setup
+rolling_hourly_mcs_results<-list()
+expanding_hourly_mcs_results<-list()
+for(h in 1:24){
+                
+                rolling_hourly_mcs_results[[h]]<-MCSprocedure(
+                  Loss=loss.matrix(rolling_hourly_forecasts[[h]][["errors"]]),
+                  alpha=0.05,
+                  B=5000,
+                  statistic="Tmax",
+                  verbose=FALSE
+                )
+                
+                expanding_hourly_mcs_results[[h]]<-MCSprocedure(
+                  Loss=loss.matrix(expanding_hourly_forecasts[[h]][["errors"]]),
+                  alpha=0.05,
+                  B=5000,
+                  statistic="Tmax",
+                  verbose=FALSE
+                )
+              }
+#evaluation
+            # rolling window             
+              for(h in 1:24){
+                cat("\n==== Rolling window MCS, horizon", h, "====\n")
+                print(rolling_hourly_mcs_results[[h]])
+              }
+
+             # expanding 
+              for(h in 1:24){
+                cat("\n==== Expanding window MCS, horizon", h, "====\n")
+                print(expanding_hourly_mcs_results[[h]])
+              }
+
+# extra evaluation of the hourly forecasts --------------------------
+
 # 1. average RMSE over all 24 horizons, per model
 avg_rmse<-data.frame(
   rolling=round(colMeans(metric.table(rolling_hourly_criteria,"RMSE")[,-1]),1),
@@ -1200,11 +1334,11 @@ mcs_counts<-data.frame(
   row.names=colnames(rolling_hourly_forecasts[[1]][["errors"]])
 )
 print(mcs_counts)
+
 #conclusion: according to the MCS membership: weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)"  drops out the least of all models considered 
 #            only for 04h to 05h the model is dropped out of the set for both rolling and expanding window
 #            at later hours several models stay in the set.
 #            for horizons further in the future the differences between the models are less clear
-
 
 # 3. DM test for every PAIR of models at every horizon (two-sided, Bartlett variance,
 #    h corrected for the daily origins, as in dm.pvalues)
@@ -1245,10 +1379,8 @@ dm_all_R<-pairwise.dm(rolling_hourly_forecasts)
 dm_all_E<-pairwise.dm(expanding_hourly_forecasts)
 win.matrix(dm_all_R)
 win.matrix(dm_all_E)
-
 #conclusion: according to the pairwise DM-test weekly SARIMA: "SARIMA(5,0,4)(4,1,3)[168] (smooth)" is the best 
 #            considering expanding and rolling window forecast
-
 
 # 4. full results table: in-sample AIC/BIC + out-of-sample statistics pooled over all
 #    horizons (31 days x 24 hours = 744 forecasts per model), rolling and expanding
@@ -1403,8 +1535,8 @@ ggsave("results/rmse_rolling.png",
 ggsave("results/rmse_expanding.png",
        plot.metric(expanding_hourly_criteria,"RMSE","Expanding-window RMSE by forecast horizon"),width=9,height=5)
 
-# forecast comparison daily: DM and MCS -----------------------------------------------
-# REVISED: two-sided (H0: both models equally accurate)
+# forecast comparison daily -----------------------------------------------
+# two-sided (H0: both models equally accurate)
 
 # moving window DM test
                   dm.test(
@@ -1449,9 +1581,9 @@ expanding_daily_mcs_result@Info
 print(expanding_daily_mcs_result)
 
 # Time series part of cross-sectional Hierarchy -----------------------------------------
-# Two base models for all 9 series, written as functions:
+# two base models for all 9 series, written as functions:
 #   - "sarima_weekly": weekly SARIMA (smooth, lags 1 and 168 + drift)
-#   - "sarima_daily" : daily SARIMA (period 24 + linear trend) (assuming not allowed use of "smooth" for weekly seasonality)
+#   - "sarima_daily" : daily SARIMA (period 24 + linear trend)
 # For every series the orders are selected ONCE on the training sample (April-July), with
 # the same searches as for area 6 (auto.msarima / auto.arima), and then kept fixed; every
 # day all parameters are re-estimated. The training fits also give the WLS residuals.
@@ -1825,7 +1957,6 @@ for (key in names(hierarchy_results)) {
 dir.create("results", showWarnings = FALSE)
 writexl::write_xlsx(hierarchy_sheets, "results/citibike_hierarchy_results.xlsx")
 
-
 # conclusion forecast reconciliation --------------------------------------
 
 #Are the base forecasts coherent? 
@@ -1888,7 +2019,7 @@ writexl::write_xlsx(hierarchy_sheets, "results/citibike_hierarchy_results.xlsx")
 
 #Lessons learned. 
 #1. Check what the automatic search returns. auto.arima with a 168-hour season dropped the weekly part without a warning; only its order output (p, d, q without P, D, Q) and the Inf values in its trace revealed it. ets() does the same for seasons longer than 24. 
-#2. Use a tool built for long seasons. The smooth package estimated the weekly SARIMA in seconds, and it lowered the forecast error by 27% to 34% compared with the models without a weekly component.Forecasting Citi Bike Demand: Case Report 
+#2. Use a tool built for long seasons. The smooth package estimated the weekly SARIMA in seconds, and it lowered the forecast error by 27% to 34% compared with the models without a weekly component.
 #3. Keep the trend. The unit root tests point to trend stationarity, and leaving out the trend more than doubled the forecast error (RMSE 3,116 against 1,431). Differencing to remove it (as auto.arima does without a trend) conflicts with the tests. 
 #4. Test on the training sample only. Unit root tests, model selection and seasonal adjustment should not see the test month. 
 #5. Choose metrics from the costs. RMSE plus overshoot counts reflect costly rush-hour misses; MAPE breaks down with zero-trip hours. 
@@ -1898,5 +2029,6 @@ writexl::write_xlsx(hierarchy_sheets, "results/citibike_hierarchy_results.xlsx")
 #Tips and tricks. 
 #Compare AIC only within one package, one data set and one differencing order; use out-of-sample RMSE and MAE across classes. 
 #Look at the residual ACF at lags 24 and 168: leftover spikes there show which season a model misses. 
-#Fix the model orders on the training sample and re-estimate the parameters at each origin; it is fast, and it evaluates the models you actually specified. Save intermediate results (checkpoints) during long runs. Next steps. Add weather and holiday regressors, which would explain the outlier days. Treat hours with empty stations as censored demand. Forecast returns as well as pick-ups, and produce prediction intervals. Try MinT reconciliation, and evaluate over a longer test period. Test the weekly ETS out of sample (DM and MCS); it fitted well in-sample but was not part of the forecast exercise.
-
+#Fix the model orders on the training sample and re-estimate the parameters at each origin; it is fast, and it evaluates the models you actually specified.
+#Save intermediate results (checkpoints) during long runs. Next steps. Add weather and holiday regressors, which would explain the outlier days. Treat hours with empty stations as censored demand. Forecast returns as well as pick-ups, and produce prediction intervals.
+#Try MinT reconciliation, and evaluate over a longer test period. Test the weekly ETS out of sample (DM and MCS); it fitted well in-sample but was not part of the forecast exercise.
